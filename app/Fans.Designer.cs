@@ -71,7 +71,7 @@ namespace GHelper
             buttonReset = new RButton();
             comboBoost = new RComboBox();
             panelSliders = new Panel();
-            panelAdvanced = new Panel();
+            panelAdvanced = new GHelper.UI.RCardPanel();
             panelAdvancedAlways = new Panel();
             checkApplyUV = new RCheckBox();
             panelAdvancedApply = new Panel();
@@ -100,7 +100,7 @@ namespace GHelper
             panelDownload = new Panel();
             buttonDownload = new RButton();
             panelPawnIO = new Panel();
-            panelPower = new Panel();
+            panelPower = new GHelper.UI.RCardPanel();
             panelApplyPower = new Panel();
             checkApplyPower = new RCheckBox();
             panelCPU = new Panel();
@@ -143,7 +143,7 @@ namespace GHelper
             panelPowerModeTItle = new Panel();
             picturePowerMode = new PictureBox();
             labelPowerModeTitle = new Label();
-            panelGPU = new Panel();
+            panelGPU = new GHelper.UI.RCardPanel();
             panelGPUTemp = new Panel();
             labelGPUTemp = new Label();
             labelGPUTempTitle = new Label();
@@ -1621,7 +1621,7 @@ namespace GHelper
             panelGPU.Location = new Point(10, 66);
             panelGPU.Margin = new Padding(4);
             panelGPU.Name = "panelGPU";
-            panelGPU.Padding = new Padding(0, 0, 0, 18);
+            panelGPU.Padding = new Padding(20, 12, 20, 30);
             panelGPU.Size = new Size(520, 822);
             panelGPU.TabIndex = 1;
             panelGPU.Visible = false;

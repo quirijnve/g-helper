@@ -64,6 +64,7 @@ namespace GHelper
         {
 
             InitializeComponent();
+            InitializeAppearance();
             InitTheme(true);
 
             gpuControl = new GPUModeControl(this);
