@@ -22,8 +22,7 @@ namespace GHelper.UI
 
             if (Parent == null || FlatAppearance.BorderColor.A == 0 || RForm.flatTheme) return;
 
-            float ratio = pevent.Graphics.DpiX / 192.0f;
-            int radius = (int)Math.Round(ratio * borderRadius, MidpointRounding.AwayFromZero);
+            int radius = DesignSystem.Scale(this, Math.Max(DesignSystem.CornerRadius, borderRadius / 2));
 
             Rectangle borderRect = new Rectangle(0, 0, ClientRectangle.Width - 1, ClientRectangle.Height - 1);
             Color sideColor = FlatAppearance.BorderColor.A > 0 ? FlatAppearance.BorderColor : RForm.borderSecond;
@@ -40,7 +39,9 @@ namespace GHelper.UI
                 pevent.Graphics.FillPath(parentBrush, cutoutPath);
             }
 
-            ControlHelper.DrawGradientBorder(pevent.Graphics, borderRect, sideColor, radius, 1f, PenAlignment.Center);
+            using var pen = new Pen(sideColor);
+            using var outline = DesignSystem.RoundedRectangle(borderRect, DesignSystem.Scale(this, DesignSystem.CornerRadius));
+            pevent.Graphics.DrawPath(pen, outline);
         }
     }
 }

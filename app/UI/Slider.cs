@@ -33,44 +33,19 @@ namespace GHelper.UI
         private const float InnerPressed = 10f / 22f;
 
         private float _innerScale = InnerNormal;
-        private float _innerTarget = InnerNormal;
         private float _tickAlpha;
-        private float _tickTarget;
-        private readonly System.Windows.Forms.Timer _animTimer = new() { Interval = 30 };
-
-
         public Color accentColor = Color.FromArgb(255, 58, 174, 239);
         public Color borderColor = Color.White;
-
         public List<int> supportedValues = new();
-
         public event EventHandler ValueChanged;
 
-        public Slider()
-        {
-            // This reduces flicker
-            DoubleBuffered = true;
-            TabStop = true;
+        public Slider() { DoubleBuffered = true; TabStop = true; }
 
-            _animTimer.Tick += delegate
-            {
-                _innerScale += (_innerTarget - _innerScale) * 0.3f;
-                _tickAlpha += (_tickTarget - _tickAlpha) * 0.3f;
-                if (Math.Abs(_innerTarget - _innerScale) < 0.01f && Math.Abs(_tickTarget - _tickAlpha) < 1f)
-                {
-                    _innerScale = _innerTarget;
-                    _tickAlpha = _tickTarget;
-                    _animTimer.Stop();
-                }
-                Invalidate();
-            };
-        }
-
-        private void AnimateInner(float target)
+        private void SetInteractionState(float target)
         {
-            _innerTarget = target;
-            _tickTarget = target == InnerNormal ? 0 : 120;
-            _animTimer.Start();
+            _innerScale = target;
+            _tickAlpha = target == InnerNormal ? 0 : 120;
+            Invalidate();
         }
 
 
@@ -169,9 +144,9 @@ namespace GHelper.UI
         {
             base.OnPaint(e);
 
-            Brush brushAccent = new SolidBrush(accentColor);
-            Brush brushEmpty = new SolidBrush(RForm.chartGrid);
-            Brush brushBorder = new SolidBrush(borderColor);
+            using Brush brushAccent = new SolidBrush(accentColor);
+            using Brush brushEmpty = new SolidBrush(RForm.chartGrid);
+            using Brush brushBorder = new SolidBrush(borderColor);
 
             e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
@@ -194,7 +169,7 @@ namespace GHelper.UI
 
             if (_tickAlpha >= 1 && supportedValues.Count > 0)
             {
-                Brush brushMark = new SolidBrush(Color.FromArgb((int)_tickAlpha, RForm.foreMain));
+                using Brush brushMark = new SolidBrush(Color.FromArgb((int)_tickAlpha, RForm.foreMain));
                 float tickW = Math.Max(1f, _barSize.Height / 4);
                 float tickH = 0.75f * _barSize.Height;
                 float gap = 0.5f * _barSize.Height;
@@ -256,7 +231,7 @@ namespace GHelper.UI
 
             Focus();
 
-            AnimateInner(InnerPressed);
+            SetInteractionState(InnerPressed);
             _calculateValue(e);
 
             _moving = true;
@@ -315,27 +290,22 @@ namespace GHelper.UI
             base.OnMouseUp(e);
             _moving = false;
             _dragX = null;
-            AnimateInner(ClientRectangle.Contains(e.Location) ? InnerHover : InnerNormal);
+            SetInteractionState(ClientRectangle.Contains(e.Location) ? InnerHover : InnerNormal);
             Invalidate();
         }
 
         protected override void OnMouseEnter(EventArgs e)
         {
             base.OnMouseEnter(e);
-            if (!_moving) AnimateInner(InnerHover);
+            if (!_moving) SetInteractionState(InnerHover);
         }
 
         protected override void OnMouseLeave(EventArgs e)
         {
             base.OnMouseLeave(e);
-            if (!_moving) AnimateInner(InnerNormal);
+            if (!_moving) SetInteractionState(InnerNormal);
         }
 
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing) _animTimer.Dispose();
-            base.Dispose(disposing);
-        }
 
     }
 

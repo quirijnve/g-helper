@@ -61,6 +61,7 @@ public static class ControlHelper
         foreach (Control control in controls)
         {
 
+            if (control is RCardPanel) control.BackColor = DesignSystem.Surface;
             AdjustControls(control.Controls);
 
             var button = control as RButton;
@@ -123,7 +124,8 @@ public static class ControlHelper
             var sl = control as Slider;
             if (sl != null)
             {
-                sl.borderColor = RForm.buttonMain;
+                sl.borderColor = DesignSystem.Surface;
+                sl.accentColor = DesignSystem.Accent;
             }
 
             var chk = control as CheckBox;
@@ -131,7 +133,7 @@ public static class ControlHelper
             {
                 if (chk.BackColor != RForm.formBack)
                 {
-                    chk.BackColor = RForm.buttonSecond;
+                    chk.BackColor = chk.Appearance == Appearance.Button ? RForm.buttonSecond : chk.Parent?.BackColor ?? RForm.formBack;
                     if (chk is RCheckBox)
                         chk.FlatAppearance.BorderColor = RForm.borderSecond;
                 }

@@ -53,32 +53,14 @@ namespace GHelper.UI
         {
             flatTheme = AppConfig.GetString("theme")?.ToLower() == "flat";
 
-            if (darkTheme)
-            {
-                buttonMain = Color.FromArgb(255, 46, 46, 46);
-                buttonSecond = Color.FromArgb(255, 36, 36, 36);
-
-                formBack = Color.FromArgb(255, 28, 28, 28);
-                foreMain = Color.FromArgb(255, 240, 240, 240);
-                borderMain = Color.FromArgb(255, 55, 55, 55);
-                borderSecond = Color.FromArgb(255, 42, 42, 42);
-
-                chartMain = Color.FromArgb(255, 35, 35, 35);
-                chartGrid = Color.FromArgb(255, 70, 70, 70);
-            }
-            else
-            {
-                buttonMain = SystemColors.ControlLightLight;
-                buttonSecond = SystemColors.ControlLight;
-
-                formBack = SystemColors.Control;
-                foreMain = SystemColors.ControlText;
-                borderMain = Color.FromArgb(255, 220, 220, 220);
-                borderSecond = Color.FromArgb(255, 215, 215, 215);
-
-                chartMain = SystemColors.ControlLightLight;
-                chartGrid = Color.LightGray;
-            }
+            DesignSystem.SetTheme(darkTheme);
+            buttonMain = DesignSystem.Inset;
+            buttonSecond = DesignSystem.Inset;
+            formBack = DesignSystem.Canvas;
+            foreMain = DesignSystem.Text;
+            borderMain = borderSecond = DesignSystem.Separator;
+            chartMain = DesignSystem.Surface;
+            chartGrid = DesignSystem.Separator;
         }
 
         private static bool IsDarkTheme()
@@ -122,6 +104,7 @@ namespace GHelper.UI
 
             if (changed || firstInit)
             {
+                DwmSetWindowAttribute(Handle, 33, new[] { 2 }, 4); // Native Windows 11 corners, no custom frame.
                 DwmSetWindowAttribute(Handle, 20, new[] { darkTheme ? 1 : 0 }, 4);
                 SetPreferredAppMode(darkTheme ? 1 : 0); 
                 SetWindowTheme(Handle, darkTheme ? "DarkMode_Explorer" : "Explorer", null);

@@ -1,189 +1,113 @@
-﻿using System.Drawing.Drawing2D;
+using System.Drawing.Drawing2D;
 
 namespace GHelper.UI
 {
     public class RButton : Button
     {
-
-        // Design tokens
-        private const float HoverShiftAmount = 0.04f;
-        private const float ActiveTopLighten = 0.15f;
-        private const float RestTopLighten = 0.1f;
-        private const int ActiveBgTopAlpha = 32;
-        private const float ActiveBgEndFraction = 0.20f;
-
-        //Fields
-        private int borderSize = 5;
-
         private int borderRadius = 5;
+        private Color borderColor = Color.Transparent;
+        private bool activated;
+        private bool secondary;
+        private GraphicsPath? outline;
+        private GraphicsPath? corners;
+
         public int BorderRadius
         {
-            get { return borderRadius; }
-            set
-            {
-                borderRadius = value;
-            }
+            get => borderRadius;
+            set { if (borderRadius == value) return; borderRadius = value; ResetGeometry(); }
         }
-
-        private Color borderColor = Color.Transparent;
         public Color BorderColor
         {
-            get { return borderColor; }
-            set
-            {
-                borderColor = value;
-            }
+            get => borderColor;
+            set { if (borderColor == value) return; borderColor = value; Invalidate(); }
         }
-
-
-        private bool activated = false;
         public bool Activated
         {
-            get { return activated; }
+            get => activated;
             set
             {
-                if (activated != value)
-                    Invalidate();
+                if (activated == value) return;
                 activated = value;
                 AccessibleDescription = activated ? "Active" : null;
+                Invalidate();
             }
         }
-
-        private bool secondary = false;
         public bool Secondary
         {
-            get { return secondary; }
-            set
-            {
-                secondary = value;
-            }
+            get => secondary;
+            set { if (secondary == value) return; secondary = value; Invalidate(); }
         }
-
-        public bool Borderless { get; set; } = false;
-
-        protected override bool ShowFocusCues => false;
+        public bool Borderless { get; set; }
 
         public RButton()
         {
             DoubleBuffered = true;
             FlatStyle = FlatStyle.Flat;
             FlatAppearance.BorderSize = 0;
-            BackColorChanged += (s, e) => UpdateHoverColor();
+            BackColorChanged += (_, _) => UpdateHoverColor();
             UpdateHoverColor();
         }
 
         private void UpdateHoverColor()
         {
-            int lum = (BackColor.R * 30 + BackColor.G * 59 + BackColor.B * 11) / 100;
-            Color target = lum > 128 ? Color.Black : Color.White;
-            FlatAppearance.MouseOverBackColor = Shift(BackColor, target, HoverShiftAmount);
-            FlatAppearance.MouseDownBackColor = Shift(BackColor, target, HoverShiftAmount * 2f);
+            var target = BackColor.GetBrightness() > .5f ? Color.Black : Color.White;
+            FlatAppearance.MouseOverBackColor = Blend(BackColor, target, .05f);
+            FlatAppearance.MouseDownBackColor = Blend(BackColor, target, .10f);
         }
 
-        private static Color Shift(Color from, Color target, float amount)
+        private static Color Blend(Color from, Color to, float amount) => Color.FromArgb(from.A,
+            (int)(from.R + (to.R - from.R) * amount),
+            (int)(from.G + (to.G - from.G) * amount),
+            (int)(from.B + (to.B - from.B) * amount));
+
+        private void ResetGeometry()
         {
-            return Color.FromArgb(from.A,
-                (int)(from.R + (target.R - from.R) * amount),
-                (int)(from.G + (target.G - from.G) * amount),
-                (int)(from.B + (target.B - from.B) * amount));
+            outline?.Dispose(); outline = null;
+            corners?.Dispose(); corners = null;
+            Invalidate();
         }
 
-        private GraphicsPath GetFigurePath(Rectangle rect, int radius)
+        protected override void OnSizeChanged(EventArgs e) { ResetGeometry(); base.OnSizeChanged(e); }
+        protected override void OnDpiChangedAfterParent(EventArgs e) { ResetGeometry(); base.OnDpiChangedAfterParent(e); }
+
+        protected override void OnPaint(PaintEventArgs e)
         {
-            GraphicsPath path = new GraphicsPath();
-            float curveSize = radius * 2F;
-
-            path.StartFigure();
-            path.AddArc(rect.X, rect.Y, curveSize, curveSize, 180, 90);
-            path.AddArc(rect.Right - curveSize, rect.Y, curveSize, curveSize, 270, 90);
-            path.AddArc(rect.Right - curveSize, rect.Bottom - curveSize, curveSize, curveSize, 0, 90);
-            path.AddArc(rect.X, rect.Bottom - curveSize, curveSize, curveSize, 90, 90);
-            path.CloseFigure();
-            return path;
-        }
-
-
-        protected override void OnPaint(PaintEventArgs pevent)
-        {
-
-            base.OnPaint(pevent);
-
-            float ratio = pevent.Graphics.DpiX / 192.0f;
-            int border = (int)Math.Round((ratio * borderSize - 1) / 2) * 2 + 1;
-            int radius = (int)Math.Round(ratio * borderRadius, MidpointRounding.AwayFromZero);
-
-            Rectangle rectSurface = ClientRectangle;
-
-            using (GraphicsPath pathSurface = GetFigurePath(rectSurface, radius + border))
-            using (Pen penSurface = new Pen(Parent.BackColor, border))
+            // Native painting retains text/image layout, mnemonics, pressed state and RTL.
+            base.OnPaint(e);
+            if (Width < 3 || Height < 3) return;
+            if (outline == null)
             {
-                pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                Region = new Region(pathSurface);
-                pevent.Graphics.DrawPath(penSurface, pathSurface);
-
-                bool drawActive = Enabled && !Borderless && activated && borderColor.A > 0;
-                bool drawRest = Enabled && !Borderless && !activated && FlatAppearance.BorderColor.A > 0 && !RForm.flatTheme;
-
-                if (drawActive)
+                int radius = DesignSystem.Scale(this, Math.Max(DesignSystem.CornerRadius, borderRadius / 2));
+                outline = DesignSystem.RoundedRectangle(new Rectangle(1, 1, Width - 3, Height - 3), radius);
+                corners = new GraphicsPath(FillMode.Alternate);
+                corners.AddRectangle(ClientRectangle);
+                corners.AddPath(outline, false);
+            }
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using (var brush = new SolidBrush(Parent?.BackColor ?? BackColor))
+                e.Graphics.FillPath(brush, corners!);
+            if (!Borderless && (!RForm.flatTheme || activated))
+            {
+                var stroke = activated && borderColor.A > 0 ? borderColor : FlatAppearance.BorderColor;
+                if (SystemInformation.HighContrast) stroke = activated ? SystemColors.Highlight : SystemColors.WindowText;
+                if (stroke.A > 0)
                 {
-                    Rectangle borderRect = new Rectangle(border, border, rectSurface.Width - 2 * border, rectSurface.Height - 2 * border);
-
-                    Color bgTop = Color.FromArgb(ActiveBgTopAlpha, borderColor);
-                    Color bgTransparent = Color.FromArgb(0, borderColor);
-                    float bgEndPos = ActiveBgEndFraction;
-
-                    using (GraphicsPath bgPath = GetFigurePath(borderRect, radius))
-                    using (LinearGradientBrush bgBrush = new LinearGradientBrush(
-                        ControlHelper.DarkMode ? new PointF(0, borderRect.Y) : new PointF(0, borderRect.Bottom),
-                        ControlHelper.DarkMode ? new PointF(0, borderRect.Bottom) : new PointF(0, borderRect.Y),
-                        bgTop, bgTransparent))
-                    {
-                        bgBrush.InterpolationColors = new ColorBlend
-                        {
-                            Colors = new[] { bgTop, bgTransparent, bgTransparent },
-                            Positions = new[] { 0f, bgEndPos, 1f }
-                        };
-                        if (!RForm.flatTheme)
-                            pevent.Graphics.FillPath(bgBrush, bgPath);
-                    }
-
-                    ControlHelper.DrawGradientBorder(pevent.Graphics, borderRect, borderColor, radius, border, PenAlignment.Outset, RForm.flatTheme ? 0f : ActiveTopLighten);
-                }
-                else if (drawRest)
-                {
-                    int inset = border / 2 + 1;
-                    Rectangle borderRect = new Rectangle(inset, inset, rectSurface.Width - 2 * inset, rectSurface.Height - 2 * inset);
-                    ControlHelper.DrawGradientBorder(pevent.Graphics, borderRect, FlatAppearance.BorderColor, radius + border - inset, 1f, PenAlignment.Inset, RestTopLighten);
+                    using var pen = new Pen(stroke, activated ? Math.Max(1, DesignSystem.Scale(this, 2)) : 1);
+                    pen.Alignment = PenAlignment.Inset;
+                    e.Graphics.DrawPath(pen, outline);
                 }
             }
-
-            if (!Enabled && ForeColor != SystemColors.ControlText)
+            if (Focused && ShowFocusCues)
             {
-                var rect = pevent.ClipRectangle;
-                if (Image is not null)
-                {
-                    rect.Y += Image.Height;
-                    rect.Height -= Image.Height;
-                }
-                else
-                {
-                    using (var brush = new SolidBrush(Parent.BackColor))
-                        pevent.Graphics.FillRectangle(brush, rect);
-                    using (var brush = new SolidBrush(BackColor))
-                        pevent.Graphics.FillRectangle(brush, rect);
-                }
-                TextFormatFlags flags = TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak;
-                TextRenderer.DrawText(pevent.Graphics, Text, Font, rect, Color.Gray, flags);
+                var focus = Rectangle.Inflate(ClientRectangle, -DesignSystem.Scale(this, 4), -DesignSystem.Scale(this, 4));
+                ControlPaint.DrawFocusRectangle(e.Graphics, focus, ForeColor, BackColor);
             }
-
-            if (!Enabled && !Borderless && activated && borderColor.A > 0)
-            {
-                Rectangle borderRect = new Rectangle(border, border, rectSurface.Width - 2 * border, rectSurface.Height - 2 * border);
-                ControlHelper.DrawGradientBorder(pevent.Graphics, borderRect, borderColor, radius, border, PenAlignment.Outset, RForm.flatTheme ? 0f : ActiveTopLighten);
-            }
-
-
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) { outline?.Dispose(); corners?.Dispose(); }
+            base.Dispose(disposing);
+        }
     }
 }

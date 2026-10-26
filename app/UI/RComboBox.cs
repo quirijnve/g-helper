@@ -210,7 +210,7 @@ namespace GHelper.UI
                 new Point(middle.X + 4, middle.Y - 2),
                 new Point(middle.X, middle.Y + 2)
                 };
-                int outerRadius = Math.Max(1, (int)Math.Round(4 * DeviceDpi / 192f));
+                int outerRadius = Math.Max(1, (int)Math.Round(DesignSystem.CornerRadius * DeviceDpi / 96f));
                 var formBackColor = Parent is not null ? Parent.BackColor : BackColor;
 
                 var ps = new PAINTSTRUCT();
@@ -258,7 +258,10 @@ namespace GHelper.UI
                         using (var p = new Pen(BackColor))
                             DrawRoundedRectangle(g, p, outerBorder, outerRadius, outerRadius);
                     else
-                        ControlHelper.DrawGradientBorder(g, outerBorder, outerBorderColor, outerRadius);
+                    {
+                        using var pen = new Pen(outerBorderColor);
+                        DrawRoundedRectangle(g, pen, outerBorder, outerRadius, outerRadius);
+                    }
                 }
                 if (shoulEndPaint)
                     EndPaint(Handle, ref ps);
