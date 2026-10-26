@@ -26,9 +26,42 @@ internal static class UiVerificationEntry
             main.Text = "Personal device controls";
             ConfigureMain(main);
             Capture(main, args[0], "main-" + args[1]);
+            main.Show(); main.PerformLayout(); Application.DoEvents();
+            results["verticalScrollVisible"] = main.VerticalScroll.Visible;
+            results["horizontalScrollVisible"] = main.HorizontalScroll.Visible;
+            if (Descendants(main).Any(c => c.Name == "batteryChargeRow"))
+            {
+                Require(!main.VerticalScroll.Visible && !main.HorizontalScroll.Visible, "G16 fixture fits without scrollbars");
+                foreach (var name in new[] { "checkStartup", "labelCharge", "buttonBatteryFull", "buttonQuit", "tableVisual" })
+                {
+                    var control = Find(main, name);
+                    Require(control.Visible && main.RectangleToScreen(main.ClientRectangle).Contains(control.RectangleToScreen(control.ClientRectangle)), "Visible G16 control: " + name);
+                }
+                var sliderBounds = Find(main, "sliderBattery").Bounds;
+                var fullBounds = Find(main, "buttonBatteryFull").Bounds;
+                Require(sliderBounds.Right <= fullBounds.Left, "Battery slider/action do not overlap");
+                var hintLabel = (Label)Find(main, "labelTipGPU");
+                hintLabel.Text = "Translated GPU mode explanation";
+                var container = (System.ComponentModel.IContainer)typeof(SettingsForm).GetField("components", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(main)!;
+                var tooltip = container.Components.OfType<ToolTip>().Single();
+                Require(!hintLabel.Visible && tooltip.GetToolTip(Find(main, "buttonEco")) == hintLabel.Text, "GPU hover hints retained as tooltips");
+                hintLabel.Text = "";
+                var backlightNotice = Find(main, "labelBacklight");
+                backlightNotice.Text = "Dynamic lighting notice";
+                Require(backlightNotice.Height > 0, "Nonempty backlight notice retained");
+                backlightNotice.Text = "";
+                Require(backlightNotice.Height == 0, "Empty backlight notice collapses");
+            }
+            main.Hide();
             results["dpi"] = main.DeviceDpi;
             results["mainControls"] = Descendants(main).Count();
             results["mainControlNames"] = Descendants(main).Select(c => c.Name).Order().ToArray();
+            if (args.Contains("--screens-only"))
+            {
+                results["mainSize"] = new { main.Width, main.Height };
+                File.WriteAllText(Path.Combine(args[0], "layout-" + args[1] + ".json"), JsonSerializer.Serialize(results, new JsonSerializerOptions { WriteIndented = true }));
+                return 0;
+            }
             var warmConstruction = new List<double>();
             for (int i = 0; i < 5; i++)
             {
@@ -81,6 +114,21 @@ internal static class UiVerificationEntry
             Require(clicks == 1, "Button click dispatch");
             button.Enabled = false; button.PerformClick(); Require(clicks == 1, "Disabled button dispatch");
             button.Enabled = true;
+            if (typeof(RButton).GetProperty("Image")!.DeclaringType == typeof(RButton))
+            {
+                using var sourceIcon = new Bitmap(16, 16);
+                button.Image = sourceIcon;
+                var selectedIcon = ((Button)button).Image;
+                Require(!ReferenceEquals(selectedIcon, sourceIcon), "Selected icon tinted");
+                Require(button.BackColor != RForm.buttonMain, "Selected button filled");
+                button.Activated = false;
+                Require(ReferenceEquals(((Button)button).Image, sourceIcon), "Inactive source icon restored");
+                button.Activated = true;
+                Require(ReferenceEquals(((Button)button).Image, selectedIcon), "Selected icon cache reused");
+                button.Enabled = false;
+                Require(ReferenceEquals(((Button)button).Image, sourceIcon), "Disabled source icon restored");
+                button.Image = null; button.Enabled = true;
+            }
             using var slider = new SliderProbe { Min = 0, Max = 100, Step = 5, Value = 50 };
             int changes = 0; slider.ValueChanged += (_, _) => changes++;
             slider.Key(Keys.Right); Require(slider.Value == 55 && changes == 1, "Slider keyboard step");
@@ -118,7 +166,7 @@ internal static class UiVerificationEntry
     static Control Find(Control parent, string name) => Descendants(parent).First(c => c.Name == name);
     static void ConfigureMain(Form form)
     {
-        foreach (var name in new[] { "panelMatrix", "panelRearLight", "panelAlly", "panelPeripherals", "panelGamma" }) Find(form, name).Visible = false;
+        foreach (var name in new[] { "panelMatrix", "panelRearLight", "panelAlly", "panelPeripherals" }) Find(form, name).Visible = false;
         Find(form, "labelCPUFan").Text = "45°C  ·  1,800 RPM";
         Find(form, "labelGPUFan").Text = "39°C  ·  0 RPM";
         foreach (var name in new[] { "buttonEnergySaver", "buttonArmoury", "buttonAmdOled", "tableAMD", "labelTipGPU" }) Find(form, name).Visible = false;
@@ -129,8 +177,20 @@ internal static class UiVerificationEntry
         ((RButton)Find(form, "buttonScreenAuto")).Activated = true;
         ((RButton)Find(form, "buttonScreenAuto")).BorderColor = RForm.colorStandard;
         ((Slider)Find(form, "sliderBattery")).Value = 80;
-        Find(form, "labelBatteryTitle").Text = "Battery charge limit";
-        Find(form, "labelBattery").Text = "80%";
+        Find(form, "labelBatteryTitle").Text = "Battery Charge Limit: 85%";
+        Find(form, "labelCharge").Text = "Charge: 85.0%";
+        Find(form, "labelVersion").Text = "Version: 0.290.0";
+        Find(form, "button120Hz").Text = "240Hz + OD";
+        Find(form, "buttonMiniled").Visible = false;
+        Find(form, "panelGamma").Visible = true;
+        Find(form, "tableVisual").Visible = true;
+        Find(form, "labelGammaTitle").Text = "Visual Mode";
+        foreach (var item in new[] { ("comboVisual", "Default"), ("comboColorTemp", "Neutral"), ("comboGamut", "Gamut: Native") })
+        {
+            var combo = (ComboBox)Find(form, item.Item1); combo.Visible = true; combo.Items.Add(item.Item2); combo.SelectedIndex = 0;
+        }
+        var saver = (RButton)Find(form, "buttonEnergySaver"); saver.Visible = true; saver.BackColor = RForm.colorEco; saver.ForeColor = Color.White;
+        Find(form, "labelBattery").Text = "";
         var keyboard = (ComboBox)Find(form, "comboKeyboard"); keyboard.Items.Add("Static"); keyboard.SelectedIndex = 0;
     }
     static void ConfigureFans(Form form)
@@ -145,7 +205,9 @@ internal static class UiVerificationEntry
     static void Capture(Form form, string output, string name)
     {
         form.StartPosition = FormStartPosition.Manual; form.Location = new Point(30, 30);
-        form.Show(); form.PerformLayout(); Application.DoEvents();
+        form.Show(); form.PerformLayout();
+        if (form is SettingsForm) typeof(SettingsForm).GetMethod("AlignFnLock", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(form, null);
+        Application.DoEvents();
         using var bitmap = new Bitmap(form.Width, form.Height);
         form.DrawToBitmap(bitmap, new Rectangle(Point.Empty, form.Size));
         bitmap.Save(Path.Combine(output, name + ".png"));

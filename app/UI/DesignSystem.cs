@@ -5,12 +5,9 @@ namespace GHelper.UI;
 // All dimensions are logical 96-DPI pixels. No images, timers or background work.
 internal static class DesignSystem
 {
-    internal const string FontFamily = "Segoe UI";
-    internal const float TitlePoints = 21;
-    internal const float CaptionPoints = 9;
     internal const int CornerRadius = 8;
     internal const int CardRadius = 14;
-    internal const int Gap = 10;
+    internal const int Gap = 8;
     internal static Color Canvas { get; private set; }
     internal static Color Surface { get; private set; }
     internal static Color Inset { get; private set; }
@@ -30,12 +27,12 @@ internal static class DesignSystem
             Accent = SystemColors.Highlight;
             return;
         }
-        Canvas = dark ? Color.FromArgb(28, 28, 30) : Color.FromArgb(242, 242, 247);
-        Surface = dark ? Color.FromArgb(44, 44, 46) : Color.White;
-        Inset = dark ? Color.FromArgb(58, 58, 60) : Color.FromArgb(245, 245, 247);
+        Canvas = dark ? Color.FromArgb(27, 28, 31) : Color.FromArgb(239, 241, 246);
+        Surface = dark ? Color.FromArgb(36, 38, 43) : Color.FromArgb(250, 251, 254);
+        Inset = dark ? Color.FromArgb(45, 47, 53) : Color.FromArgb(242, 244, 249);
         Text = dark ? Color.FromArgb(245, 245, 247) : Color.FromArgb(29, 29, 31);
         SecondaryText = dark ? Color.FromArgb(174, 174, 182) : Color.FromArgb(99, 99, 106);
-        Separator = dark ? Color.FromArgb(68, 68, 72) : Color.FromArgb(222, 222, 227);
+        Separator = dark ? Color.FromArgb(53, 56, 63) : Color.FromArgb(222, 226, 235);
         Accent = dark ? Color.FromArgb(10, 132, 255) : Color.FromArgb(0, 102, 219);
     }
 

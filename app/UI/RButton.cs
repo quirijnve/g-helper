@@ -1,4 +1,5 @@
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 
 namespace GHelper.UI
 {
@@ -8,6 +9,25 @@ namespace GHelper.UI
         private Color borderColor = Color.Transparent;
         private bool activated;
         private bool secondary;
+        private Color restingBackColor;
+        private Color restingForeColor;
+        private bool applyingSelection;
+        private Image? sourceImage;
+        private Image? selectedImage;
+        private Color selectedImageColor;
+
+        public new Image? Image
+        {
+            get => sourceImage;
+            set
+            {
+                if (ReferenceEquals(sourceImage, value)) return;
+                base.Image = null;
+                sourceImage = value;
+                selectedImage?.Dispose(); selectedImage = null;
+                ApplySelection();
+            }
+        }
         private GraphicsPath? outline;
         private GraphicsPath? corners;
 
@@ -19,7 +39,7 @@ namespace GHelper.UI
         public Color BorderColor
         {
             get => borderColor;
-            set { if (borderColor == value) return; borderColor = value; Invalidate(); }
+            set { if (borderColor == value) return; borderColor = value; ApplySelection(); Invalidate(); }
         }
         public bool Activated
         {
@@ -28,6 +48,7 @@ namespace GHelper.UI
             {
                 if (activated == value) return;
                 activated = value;
+                ApplySelection();
                 AccessibleDescription = activated ? "Active" : null;
                 Invalidate();
             }
@@ -46,6 +67,68 @@ namespace GHelper.UI
             FlatAppearance.BorderSize = 0;
             BackColorChanged += (_, _) => UpdateHoverColor();
             UpdateHoverColor();
+        }
+
+        protected override void OnBackColorChanged(EventArgs e)
+        {
+            if (!applyingSelection) { restingBackColor = BackColor; ApplySelection(); }
+            base.OnBackColorChanged(e);
+        }
+
+        protected override void OnForeColorChanged(EventArgs e)
+        {
+            if (!applyingSelection) { restingForeColor = ForeColor; ApplySelection(); }
+            base.OnForeColorChanged(e);
+        }
+
+        protected override void OnEnabledChanged(EventArgs e)
+        {
+            ApplySelection();
+            base.OnEnabledChanged(e);
+        }
+
+        private void ApplySelection()
+        {
+            if (applyingSelection) return;
+            bool selected = activated && Enabled && !Borderless && borderColor.A > 0 && !DesignSystem.Accent.IsEmpty;
+            applyingSelection = true;
+            try
+            {
+                BackColor = selected
+                    ? SystemInformation.HighContrast ? SystemColors.Highlight : Blend(restingBackColor, DesignSystem.Accent, ControlHelper.DarkMode ? .22f : .10f)
+                    : restingBackColor;
+                ForeColor = selected
+                    ? SystemInformation.HighContrast ? SystemColors.HighlightText : ControlHelper.DarkMode ? Blend(DesignSystem.Accent, Color.White, .35f) : DesignSystem.Accent
+                    : restingForeColor;
+                if (selected && sourceImage != null)
+                {
+                    if (selectedImage == null || selectedImageColor != ForeColor)
+                    {
+                        base.Image = null;
+                        selectedImage?.Dispose();
+                        selectedImageColor = ForeColor;
+                        selectedImage = TintIcon(sourceImage, ForeColor);
+                    }
+                    base.Image = selectedImage;
+                }
+                else base.Image = sourceImage;
+            }
+            finally { applyingSelection = false; }
+        }
+
+        private static Bitmap TintIcon(Image source, Color color)
+        {
+            var bitmap = new Bitmap(source.Width, source.Height);
+            using var graphics = Graphics.FromImage(bitmap);
+            using var attributes = new ImageAttributes();
+            attributes.SetColorMatrix(new ColorMatrix(new[]
+            {
+                new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 0, 0 },
+                new float[] { 0, 0, 0, 0, 0 }, new float[] { 0, 0, 0, 1, 0 },
+                new float[] { color.R / 255f, color.G / 255f, color.B / 255f, 0, 1 }
+            }));
+            graphics.DrawImage(source, new Rectangle(0, 0, bitmap.Width, bitmap.Height), 0, 0, source.Width, source.Height, GraphicsUnit.Pixel, attributes);
+            return bitmap;
         }
 
         private void UpdateHoverColor()
@@ -88,11 +171,11 @@ namespace GHelper.UI
                 e.Graphics.FillPath(brush, corners!);
             if (!Borderless && (!RForm.flatTheme || activated))
             {
-                var stroke = activated && borderColor.A > 0 ? borderColor : FlatAppearance.BorderColor;
+                var stroke = activated && borderColor.A > 0 ? DesignSystem.Accent : FlatAppearance.BorderColor;
                 if (SystemInformation.HighContrast) stroke = activated ? SystemColors.Highlight : SystemColors.WindowText;
                 if (stroke.A > 0)
                 {
-                    using var pen = new Pen(stroke, activated ? Math.Max(1, DesignSystem.Scale(this, 2)) : 1);
+                    using var pen = new Pen(stroke, activated ? Math.Max(1, DeviceDpi / 96f) : 1);
                     pen.Alignment = PenAlignment.Inset;
                     e.Graphics.DrawPath(pen, outline);
                 }
@@ -106,7 +189,7 @@ namespace GHelper.UI
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing) { outline?.Dispose(); corners?.Dispose(); }
+            if (disposing) { base.Image = null; selectedImage?.Dispose(); outline?.Dispose(); corners?.Dispose(); }
             base.Dispose(disposing);
         }
     }

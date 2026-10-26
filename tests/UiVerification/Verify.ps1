@@ -1,7 +1,8 @@
 param(
     [string]$Source = (Join-Path $PSScriptRoot '../..'),
     [string]$Output = (Join-Path $PSScriptRoot '../../artifacts/ui-verification'),
-    [string]$Dotnet = 'dotnet'
+    [string]$Dotnet = 'dotnet',
+    [switch]$ScreensOnly
 )
 $ErrorActionPreference = 'Stop'
 $sourcePath = (Resolve-Path -LiteralPath $Source).Path
@@ -38,12 +39,14 @@ foreach ($name in @('Settings', 'Fans', 'Extra', 'Updates', 'Handheld', 'Matrix'
     [IO.File]::WriteAllText($file, $code)
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'UiVerificationEntry.cs') -Destination $appCopy
-& $Dotnet build (Join-Path $appCopy 'GHelper.csproj') -c Release -p:GITHUB_ACTIONS=true -p:StartupObject=GHelper.UiVerificationEntry -p:WarningLevel=0 --nologo -v:q
+& $Dotnet build (Join-Path $appCopy 'GHelper.csproj') -c Release -p:GITHUB_ACTIONS=true -p:NuGetAudit=false -p:StartupObject=GHelper.UiVerificationEntry -p:WarningLevel=0 --nologo -v:q
 if ($LASTEXITCODE -ne 0) { throw 'UI verification build failed.' }
 $executable = Join-Path $appCopy 'bin/x64/Release/net10.0-windows/GHelper.exe'
 foreach ($theme in @('light', 'dark')) {
     # Startup-local configuration takes priority over the user's real G-Helper config.
     [IO.File]::WriteAllText((Join-Path (Split-Path $executable) 'config.json'), ('{"ui_mode":"' + $theme + '","model":"UI verification"}'))
-    $run = Start-Process -FilePath $executable -ArgumentList @('"' + $outputPath + '"', $theme) -Wait -PassThru -WindowStyle Hidden
+    $arguments = @('"' + $outputPath + '"', $theme)
+    if ($ScreensOnly) { $arguments += '--screens-only' }
+    $run = Start-Process -FilePath $executable -ArgumentList $arguments -Wait -PassThru -WindowStyle Hidden
     if ($run.ExitCode -ne 0) { throw "Verification failed for $theme." }
 }
